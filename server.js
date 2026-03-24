@@ -98,6 +98,12 @@ wss.on('connection', (ws) => {
       rec.results = newResults;
       rec.sum = newResults.reduce((a, b) => a + b, 0);
       rec.diceCount = newResults.length;
+      // 重算所有挑战的胜负状态
+      rec.challenges.forEach(c => {
+        c.targetSum = rec.sum;
+        c.win = c.sum > rec.sum;
+        c.draw = c.sum === rec.sum;
+      });
       broadcast({ type: 'record_updated', record: rec });
       return;
     }
