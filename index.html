@@ -84,11 +84,14 @@ h1{font-family:'Playfair Display',serif;font-size:clamp(34px,7vw,60px);font-weig
 
 .history-item{background:var(--surf);border:1px solid #221f30;border-radius:10px;padding:11px 14px;transition:border-color .2s}
 .history-item:hover{border-color:#3a3550}
-.h-row{display:flex;align-items:center;gap:10px}
-.h-nick{font-size:12px;color:#b080e0;font-weight:600;min-width:60px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.h-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px}
+.h-meta{display:flex;align-items:center;gap:8px;width:100%}
+.h-nick{font-size:12px;color:#b080e0;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
 .h-nick.self{color:var(--gold-l)}
-.h-time{font-size:11px;color:#4a4060;white-space:nowrap;min-width:56px}
-.h-dice{display:flex;gap:6px;flex-wrap:wrap;flex:1;align-items:center}
+.h-time{font-size:11px;color:#4a4060;white-space:nowrap}
+.h-meta-right{margin-left:auto;display:flex;align-items:center;gap:6px}
+.h-dice{display:flex;gap:5px;flex-wrap:nowrap;align-items:center;overflow-x:auto;width:100%}
+.h-dice::-webkit-scrollbar{display:none}
 .h-die-svg{width:34px;height:34px;flex-shrink:0;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))}
 .h-badge{font-size:10px;color:#4a4060;background:#131220;border:1px solid #1e1c2e;border-radius:4px;padding:2px 7px;white-space:nowrap}
 .h-sum{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:var(--gold);min-width:30px;text-align:right}
@@ -190,7 +193,7 @@ h1{font-family:'Playfair Display',serif;font-size:clamp(34px,7vw,60px);font-weig
 .nick-modal-box input:focus{border-color:var(--gold-d)}
 .nick-modal-box .nick-error{color:var(--red);font-size:11px;margin-top:8px;min-height:16px}
 
-@media(max-width:480px){.page{padding:20px 12px 56px}#canvasWrap{height:clamp(160px,42vw,220px)}.h-nick{max-width:70px}.sub-item .s-nick{max-width:60px}}
+@media(max-width:480px){.page{padding:20px 12px 56px}#canvasWrap{height:clamp(160px,42vw,220px)}.h-nick{max-width:90px}.sub-item .s-nick{max-width:60px}.h-die-svg{width:30px;height:30px}}
 
 /* ═══ INTRO ANIMATION ═══ */
 #intro{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:var(--bg);pointer-events:none}
@@ -797,17 +800,21 @@ function makeItemHTML(r, entering) {
 
   return `<div class="history-item${entering ? ' entering' : ''}" data-id="${r.id}">
     <div class="h-row">
-      <div class="h-nick${isSelf ? ' self' : ''}">${escapeHtml(r.nickname)}</div>
-      <div class="h-time">${r.time}</div>
+      <div class="h-meta">
+        <div class="h-nick${isSelf ? ' self' : ''}">${escapeHtml(r.nickname)}</div>
+        <div class="h-time">${r.time}</div>
+        <div class="h-meta-right">
+          <div class="h-badge">${r.results.length}枚</div>
+          <div class="h-sum" ${entering ? 'style="animation-delay:.18s"' : ''}>${r.sum}</div>
+          ${challengeBtn}
+          ${adminEditRecord}
+          ${adminDelRecord}
+        </div>
+      </div>
       <div class="h-dice">${r.results.map((v, i) => {
         const delay = entering ? (0.06 + i * 0.07).toFixed(2) : '0';
         return dieSVG(v, entering ? `animation-delay:${delay}s` : '');
       }).join('')}</div>
-      <div class="h-badge">${r.results.length}枚</div>
-      <div class="h-sum" ${entering ? 'style="animation-delay:.18s"' : ''}>${r.sum}</div>
-      ${challengeBtn}
-      ${adminEditRecord}
-      ${adminDelRecord}
     </div>
     ${subHTML}
   </div>`;
