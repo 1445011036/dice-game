@@ -1,0 +1,833 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>3D 掷骰子 · 网络对战</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=Noto+Serif+SC:wght@400;600&display=swap" rel="stylesheet">
+<style>
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+:root{--bg:#0d0c18;--gold:#d4a843;--gold-l:#f0c96a;--gold-d:#6a5525;--cream:#f0e6cc;--cream-d:#9a8a6a;--surf:#181626;--surf2:#201e2e;--red:#e74c3c;--green:#2ecc71}
+body{background:var(--bg);color:var(--cream);font-family:'Noto Serif SC',serif;min-height:100vh;min-height:100dvh;overflow-x:hidden}
+body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellipse 70% 50% at 15% 15%,rgba(212,168,67,.07) 0%,transparent 55%),radial-gradient(ellipse 60% 40% at 85% 85%,rgba(80,60,160,.07) 0%,transparent 55%);pointer-events:none;z-index:0}
+.page{position:relative;z-index:1;max-width:960px;margin:0 auto;padding:20px 16px 48px}
+
+/* ── 昵称栏 ── */
+.nick-bar{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;padding:8px 16px;background:var(--surf);border:1px solid #252338;border-radius:8px}
+.nick-label{font-size:11px;color:var(--cream-d);letter-spacing:.1em}
+.nick-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--gold-l);font-weight:700}
+.online-dot{width:7px;height:7px;background:var(--green);border-radius:50%;margin-left:6px;box-shadow:0 0 6px rgba(46,204,113,.5)}
+.online-count{font-size:11px;color:var(--cream-d)}
+
+header{text-align:center;margin-bottom:16px}
+.eyebrow{font-size:10px;letter-spacing:.45em;color:var(--gold-d);text-transform:uppercase;margin-bottom:8px}
+h1{font-family:'Playfair Display',serif;font-size:clamp(34px,7vw,60px);font-weight:900;color:var(--gold);line-height:1;text-shadow:0 0 40px rgba(212,168,67,.22)}
+.subtitle{margin-top:6px;font-size:11px;color:var(--cream-d);letter-spacing:.12em}
+.sep{display:flex;align-items:center;gap:12px;margin:14px auto;max-width:200px}
+.sep::before,.sep::after{content:'';flex:1;height:1px}
+.sep::before{background:linear-gradient(to right,transparent,var(--gold-d))}
+.sep::after{background:linear-gradient(to left,transparent,var(--gold-d))}
+.sep span{color:var(--gold-d);font-size:10px}
+.section-label{font-size:10px;letter-spacing:.32em;color:var(--gold-d);text-transform:uppercase;text-align:center;margin-bottom:12px}
+
+/* ── 骰子数量 Tab ── */
+.count-tabs{display:flex;justify-content:center;gap:8px;margin-bottom:20px;flex-wrap:wrap}
+.tab{width:46px;height:46px;border-radius:10px;border:1.5px solid #2e2a44;background:var(--surf);color:#6a6080;font-family:'Playfair Display',serif;font-size:19px;font-weight:700;cursor:pointer;transition:all .2s;position:relative;overflow:hidden;touch-action:manipulation}
+.tab::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--gold),#9a6808);opacity:0;transition:opacity .2s}
+.tab span{position:relative;z-index:1;display:flex;align-items:center;justify-content:center;width:100%;height:100%}
+.tab:hover{border-color:var(--gold-d);color:var(--gold);transform:translateY(-2px)}
+.tab.active{border-color:var(--gold);color:var(--bg);box-shadow:0 0 20px rgba(212,168,67,.28)}
+.tab.active::after{opacity:1}
+
+/* ── 挑战模式横幅 ── */
+.challenge-banner{display:none;margin-bottom:20px;padding:14px 18px;background:linear-gradient(135deg,#1a1430,#241838);border:1.5px solid #6a3a9a;border-radius:12px;text-align:center;position:relative}
+.challenge-banner.show{display:block;animation:bannerIn .4s ease}
+@keyframes bannerIn{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+.challenge-banner .cb-title{font-size:12px;color:#b080e0;letter-spacing:.2em;text-transform:uppercase;margin-bottom:8px}
+.challenge-banner .cb-info{font-size:14px;color:var(--cream);margin-bottom:6px}
+.challenge-banner .cb-info strong{color:var(--gold-l)}
+.challenge-banner .cb-dice{display:flex;justify-content:center;gap:6px;margin:8px 0;align-items:center}
+.challenge-banner .cb-dice .h-die-svg,.challenge-banner .cb-dice .s-die-svg{width:34px;height:34px}
+.challenge-banner .cb-cancel{position:absolute;top:10px;right:14px;background:none;border:none;color:#6a4a8a;font-size:18px;cursor:pointer;line-height:1}
+.challenge-banner .cb-cancel:hover{color:var(--red)}
+
+.roll-wrap{text-align:center;margin-bottom:16px}
+.roll-btn{position:relative;padding:13px 48px;background:transparent;border:1.5px solid var(--gold);border-radius:6px;color:var(--gold);font-family:'Playfair Display',serif;font-size:17px;font-weight:700;letter-spacing:.18em;cursor:pointer;transition:all .22s;overflow:hidden;text-transform:uppercase;touch-action:manipulation;user-select:none}
+.roll-btn::before{content:'';position:absolute;inset:0;background:var(--gold);transform:scaleX(0);transform-origin:left;transition:transform .22s}
+.roll-btn:hover::before{transform:scaleX(1)}
+.roll-btn:hover{color:var(--bg);box-shadow:0 0 28px rgba(212,168,67,.28)}
+.roll-btn:active{transform:scale(.96)}
+.roll-btn.rolling{pointer-events:none;opacity:.5}
+.roll-btn-text{position:relative;z-index:1}
+/* 挑战模式按钮变紫 */
+.roll-btn.challenge-mode{border-color:#9a60d0}
+.roll-btn.challenge-mode::before{background:#9a60d0}
+
+#canvasWrap{width:100%;height:clamp(180px,28vw,260px);margin-bottom:14px;border-radius:12px;overflow:hidden;background:radial-gradient(ellipse at 50% 40%,#1e1c30 0%,#0a0914 100%);border:1px solid #252338;box-shadow:inset 0 0 80px rgba(0,0,0,.7)}
+#canvasWrap canvas{display:block;width:100%!important;height:100%!important}
+.sum-display{text-align:center;margin-bottom:32px;opacity:0;transform:translateY(10px);transition:opacity .4s,transform .4s}
+.sum-display.show{opacity:1;transform:translateY(0)}
+.sum-label{font-size:10px;letter-spacing:.35em;color:var(--gold-d);text-transform:uppercase;margin-bottom:4px}
+.sum-value{font-family:'Playfair Display',serif;font-size:clamp(32px,6vw,48px);font-weight:900;color:var(--gold-l);text-shadow:0 0 24px rgba(212,168,67,.4)}
+.sum-detail{font-size:13px;color:var(--cream-d);margin-top:4px;letter-spacing:.06em}
+
+/* ── 历史记录 ── */
+.history-bar{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.history-title{font-size:10px;letter-spacing:.32em;color:var(--gold-d);text-transform:uppercase}
+.history-scroll{max-height:500px;overflow-y:auto}
+.history-scroll::-webkit-scrollbar{width:3px}
+.history-scroll::-webkit-scrollbar-thumb{background:#3a3550;border-radius:2px}
+.history-list{display:flex;flex-direction:column;gap:6px}
+.empty-msg{text-align:center;color:#2e2a44;font-size:13px;padding:32px;border:1px dashed #1e1c2e;border-radius:10px}
+
+.history-item{background:var(--surf);border:1px solid #221f30;border-radius:10px;padding:11px 14px;transition:border-color .2s}
+.history-item:hover{border-color:#3a3550}
+.h-row{display:flex;align-items:center;gap:10px}
+.h-nick{font-size:12px;color:#b080e0;font-weight:600;min-width:60px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px}
+.h-nick.self{color:var(--gold-l)}
+.h-time{font-size:11px;color:#4a4060;white-space:nowrap;min-width:56px}
+.h-dice{display:flex;gap:6px;flex-wrap:wrap;flex:1;align-items:center}
+.h-die-svg{width:34px;height:34px;flex-shrink:0;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.5))}
+.h-badge{font-size:10px;color:#4a4060;background:#131220;border:1px solid #1e1c2e;border-radius:4px;padding:2px 7px;white-space:nowrap}
+.h-sum{font-family:'Playfair Display',serif;font-size:19px;font-weight:700;color:var(--gold);min-width:30px;text-align:right}
+.challenge-btn{background:none;border:1px solid #6a3a9a;border-radius:5px;color:#9a60d0;font-family:'Noto Serif SC',serif;font-size:11px;padding:4px 10px;cursor:pointer;transition:all .18s;white-space:nowrap;touch-action:manipulation}
+.challenge-btn:hover{background:#9a60d0;color:#fff;box-shadow:0 0 12px rgba(154,96,208,.3)}
+
+/* 子记录（挑战记录） */
+.sub-records{margin-top:8px;padding-left:14px;border-left:2px solid #2a2540;display:flex;flex-direction:column;gap:5px}
+.sub-item{display:flex;align-items:center;gap:8px;padding:6px 10px;background:#131220;border-radius:7px;font-size:12px}
+.sub-item .s-nick{color:#b080e0;font-weight:600;min-width:50px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100px}
+.sub-item .s-dice{display:flex;gap:4px;flex-wrap:wrap;flex:1}
+.sub-item .s-die-svg{width:26px;height:26px;flex-shrink:0;filter:drop-shadow(0 1px 2px rgba(0,0,0,0.4))}
+.sub-item .s-sum{font-family:'Playfair Display',serif;font-size:15px;font-weight:700;min-width:24px;text-align:right}
+.sub-item .s-result{font-size:11px;padding:2px 8px;border-radius:4px;font-weight:600;white-space:nowrap}
+.sub-item .s-result.win{background:rgba(46,204,113,.15);color:var(--green);border:1px solid rgba(46,204,113,.3)}
+.sub-item .s-result.lose{background:rgba(231,76,60,.15);color:var(--red);border:1px solid rgba(231,76,60,.3)}
+.sub-item .s-result.draw{background:rgba(241,196,15,.15);color:#f1c40f;border:1px solid rgba(241,196,15,.3)}
+
+/* ── Toast ── */
+.toast-container{position:fixed;top:20px;left:50%;transform:translateX(-50%);z-index:1000;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{padding:12px 24px;border-radius:8px;font-size:13px;color:#fff;pointer-events:auto;animation:toastIn .35s ease,toastOut .35s ease 2.2s both;white-space:nowrap;text-align:center;box-shadow:0 4px 20px rgba(0,0,0,.4)}
+.toast.info{background:linear-gradient(135deg,#2a1a4a,#3a2060);border:1px solid #6a3a9a}
+.toast.success{background:linear-gradient(135deg,#1a3a2a,#204030);border:1px solid #2ecc71}
+.toast.error{background:linear-gradient(135deg,#3a1a1a,#402020);border:1px solid #e74c3c}
+@keyframes toastIn{from{opacity:0;transform:translateY(-16px)}to{opacity:1;transform:translateY(0)}}
+@keyframes toastOut{to{opacity:0;transform:translateY(-10px)}}
+
+/* ── 对战结果弹窗 ── */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:900;display:none;align-items:center;justify-content:center;backdrop-filter:blur(4px)}
+.modal-overlay.show{display:flex;animation:modalBgIn .3s ease}
+@keyframes modalBgIn{from{opacity:0}to{opacity:1}}
+.modal{background:linear-gradient(160deg,#1a1630,#0d0c18);border:1.5px solid var(--gold-d);border-radius:16px;padding:32px 28px;text-align:center;max-width:400px;width:90%;animation:modalIn .4s cubic-bezier(0.22,1,0.36,1)}
+@keyframes modalIn{from{opacity:0;transform:scale(.85) translateY(20px)}to{opacity:1;transform:scale(1) translateY(0)}}
+.modal .m-icon{font-size:48px;margin-bottom:12px}
+.modal .m-title{font-family:'Playfair Display',serif;font-size:26px;font-weight:900;margin-bottom:8px}
+.modal .m-title.win{color:var(--green)}
+.modal .m-title.lose{color:var(--red)}
+.modal .m-title.draw{color:#f1c40f}
+.modal .m-vs{display:flex;align-items:center;justify-content:center;gap:16px;margin:16px 0}
+.modal .m-side{text-align:center}
+.modal .m-side-label{font-size:11px;color:var(--cream-d);margin-bottom:4px}
+.modal .m-side-sum{font-family:'Playfair Display',serif;font-size:36px;font-weight:900;color:var(--gold-l)}
+.modal .m-side-sum.opponent{color:#9a8a6a}
+.modal .m-vs-text{font-size:20px;color:var(--gold-d)}
+.modal .m-close{margin-top:20px;padding:10px 36px;background:transparent;border:1.5px solid var(--gold);border-radius:6px;color:var(--gold);font-family:'Playfair Display',serif;font-size:15px;font-weight:700;cursor:pointer;transition:all .2s;letter-spacing:.12em}
+.modal .m-close:hover{background:var(--gold);color:var(--bg)}
+
+/* ── 入场动画（保留原有） ── */
+.history-item.entering{animation:itemEnter .5s cubic-bezier(0.22,1,0.36,1) both}
+@keyframes itemEnter{from{opacity:0;transform:translateY(-22px);max-height:0;padding-top:0;padding-bottom:0;margin-top:-6px}to{opacity:1;transform:translateY(0);max-height:120px;padding-top:11px;padding-bottom:11px;margin-top:0}}
+.history-item.entering .h-die-svg{animation:diePop .45s cubic-bezier(0.34,1.6,0.64,1) both}
+@keyframes diePop{from{opacity:0;transform:scale(0) rotate(-25deg)}60%{transform:scale(1.15) rotate(5deg)}to{opacity:1;transform:scale(1) rotate(0deg)}}
+.history-item.entering .h-sum{animation:sumSlide .5s cubic-bezier(0.22,1,0.36,1) .12s both}
+@keyframes sumSlide{from{opacity:0;transform:translateX(16px)}to{opacity:1;transform:translateX(0)}}
+.history-item.entering .h-time{animation:fadeUp .35s ease .04s both}
+.history-item.entering .h-badge{animation:fadeUp .35s ease .1s both}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── 管理员入口 ── */
+.admin-entry{position:fixed;top:8px;right:12px;z-index:100;font-size:10px;color:#2e2a44;cursor:pointer;transition:color .2s;letter-spacing:.05em}
+.admin-entry:hover{color:#4a4060}
+.admin-entry.logged-in{color:#9a60d0}
+.admin-login-modal{position:fixed;inset:0;z-index:950;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.admin-login-modal.show{display:flex}
+.admin-login-box{background:#1a1630;border:1px solid #3a3060;border-radius:12px;padding:28px 24px;width:280px;text-align:center}
+.admin-login-box h3{font-family:'Playfair Display',serif;color:var(--gold);font-size:18px;margin-bottom:16px}
+.admin-login-box input{width:100%;padding:9px 12px;margin-bottom:10px;background:#0d0c18;border:1px solid #2e2a44;border-radius:6px;color:var(--cream);font-family:'Noto Serif SC',serif;font-size:13px;outline:none}
+.admin-login-box input:focus{border-color:var(--gold-d)}
+.admin-login-box .al-btns{display:flex;gap:8px;margin-top:6px}
+.admin-login-box .al-btn{flex:1;padding:8px;border-radius:6px;font-family:'Noto Serif SC',serif;font-size:12px;cursor:pointer;border:1px solid #3a3060;transition:all .18s}
+.admin-login-box .al-btn.primary{background:var(--gold);color:var(--bg);border-color:var(--gold)}
+.admin-login-box .al-btn.primary:hover{box-shadow:0 0 12px rgba(212,168,67,.3)}
+.admin-login-box .al-btn.secondary{background:transparent;color:#6a6080}
+.admin-login-box .al-btn.secondary:hover{border-color:#6a6080}
+.admin-login-box .al-error{color:var(--red);font-size:11px;margin-top:8px;display:none}
+/* 管理员删除按钮 */
+.admin-del{background:none;border:1px solid #3a1a1a;border-radius:4px;color:#6a3030;font-size:10px;padding:2px 7px;cursor:pointer;transition:all .18s;white-space:nowrap;margin-left:4px}
+.admin-del:hover{border-color:var(--red);color:var(--red);background:rgba(231,76,60,.1)}
+
+@media(max-width:480px){.page{padding:20px 12px 56px}#canvasWrap{height:clamp(160px,42vw,220px)}.h-nick{max-width:70px}.sub-item .s-nick{max-width:60px}}
+
+/* ═══ INTRO ANIMATION ═══ */
+#intro{position:fixed;inset:0;z-index:999;display:flex;align-items:center;justify-content:center;background:var(--bg);pointer-events:none}
+#introCanvas{position:absolute;inset:0;width:100%;height:100%}
+#intro.done{animation:introFadeOut .55s ease .1s both}
+@keyframes introFadeOut{to{opacity:0;pointer-events:none}}
+.page{opacity:0}
+.page.visible{animation:pageReveal .6s ease both}
+@keyframes pageReveal{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+header{overflow:visible}
+.eyebrow{opacity:0}
+.eyebrow.in{animation:eyebrowIn .5s ease .05s both}
+@keyframes eyebrowIn{from{opacity:0;letter-spacing:.8em}to{opacity:1;letter-spacing:.45em}}
+.h1-char{display:inline-block;opacity:0;transform:translateY(30px) scaleY(1.3);transform-origin:bottom center}
+.h1-char.in{animation:charDrop .55s cubic-bezier(0.22,1,0.36,1) both}
+@keyframes charDrop{from{opacity:0;transform:translateY(30px) scaleY(1.3)}to{opacity:1;transform:translateY(0) scaleY(1)}}
+.subtitle{opacity:0}
+.subtitle.in{animation:subIn .5s ease both}
+@keyframes subIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.sep,.section-label,.count-tabs,.roll-wrap,#canvasWrap,.sum-display,.history-bar,.history-scroll,.nick-bar,.challenge-banner{opacity:0}
+.content-in{animation:contentReveal .5s ease both}
+@keyframes contentReveal{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+<div class="page">
+  <div id="intro"><canvas id="introCanvas"></canvas></div>
+
+  <!-- 昵称栏 -->
+  <div class="nick-bar" id="nickBar">
+    <span class="nick-label">你的昵称：</span>
+    <span class="nick-name" id="myNickname">连接中…</span>
+    <span class="online-dot"></span>
+    <span class="online-count" id="onlineCount"></span>
+  </div>
+
+  <header>
+    <div class="eyebrow" id="eyebrow">Fortune · 命运</div>
+    <h1 id="h1Title"><span class="h1-char">掷</span><span class="h1-char">骰</span><span class="h1-char">子</span></h1>
+    <p class="subtitle" id="subtitle">网络对战 · Online Battle</p>
+  </header>
+  <div class="sep" id="elSep"><span>◆</span></div>
+
+  <!-- 普通模式：骰子数量选择 -->
+  <div id="normalMode">
+    <div class="section-label" id="elLabel">选择骰子数量</div>
+    <div class="count-tabs" id="countTabs">
+      <button class="tab active" data-count="1"><span>1</span></button>
+      <button class="tab" data-count="2"><span>2</span></button>
+      <button class="tab" data-count="3"><span>3</span></button>
+      <button class="tab" data-count="4"><span>4</span></button>
+      <button class="tab" data-count="5"><span>5</span></button>
+      <button class="tab" data-count="6"><span>6</span></button>
+    </div>
+  </div>
+
+  <!-- 挑战模式：横幅 -->
+  <div class="challenge-banner" id="challengeBanner">
+    <button class="cb-cancel" id="cancelChallenge" title="取消挑战">✕</button>
+    <div class="cb-title">⚔ 挑战模式</div>
+    <div class="cb-info" id="cbInfo"></div>
+    <div class="cb-dice" id="cbDice"></div>
+  </div>
+
+  <div class="roll-wrap" id="elRoll">
+    <button class="roll-btn" id="rollBtn" onclick="rollDice()">
+      <span class="roll-btn-text" id="rollBtnText">⚄ 掷骰子</span>
+    </button>
+  </div>
+  <div id="canvasWrap"><canvas id="c"></canvas></div>
+  <div class="sum-display" id="sumDisplay">
+    <div class="sum-label">总点数</div>
+    <div class="sum-value" id="sumValue">—</div>
+    <div class="sum-detail" id="sumDetail"></div>
+  </div>
+
+  <div class="sep"><span>◆</span></div>
+  <div class="history-bar">
+    <div class="history-title">全局掷骰记录</div>
+  </div>
+  <div class="history-scroll">
+    <div class="history-list" id="historyList">
+      <div class="empty-msg">暂无记录，开始掷骰吧…</div>
+    </div>
+  </div>
+</div>
+
+<!-- 管理员入口 -->
+<div class="admin-entry" id="adminEntry" onclick="toggleAdminLogin()">管理员登录</div>
+<div class="admin-login-modal" id="adminLoginModal">
+  <div class="admin-login-box">
+    <h3>管理员登录</h3>
+    <input type="text" id="adminUser" placeholder="账号" autocomplete="off">
+    <input type="password" id="adminPass" placeholder="密码" autocomplete="off">
+    <div class="al-btns">
+      <button class="al-btn secondary" onclick="closeAdminLogin()">取消</button>
+      <button class="al-btn primary" onclick="doAdminLogin()">登录</button>
+    </div>
+    <div class="al-error" id="adminError">账号或密码错误</div>
+  </div>
+</div>
+
+<!-- Toast 容器 -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- 对战结果弹窗 -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal" id="modalContent"></div>
+</div>
+
+<!-- ═══ INTRO ANIMATION ═══ -->
+<script>
+(function runIntro(){
+  const introEl=document.getElementById('intro'),ic=document.getElementById('introCanvas'),ctx=ic.getContext('2d');
+  let W,H,cx2,cy2,dieSize,startTime=null,rafId;
+  const SPIN_DURATION=1800,MORPH_DURATION=500,TOTAL=SPIN_DURATION+MORPH_DURATION;
+  function resize(){W=ic.width=window.innerWidth;H=ic.height=window.innerHeight;cx2=W/2;cy2=H/2;dieSize=Math.min(W,H)*.22}
+  resize();window.addEventListener('resize',resize);
+  function drawDie(x,y,size,rotX,rotY,alpha){
+    ctx.save();ctx.globalAlpha=alpha;const s=size;
+    const cosX=Math.cos(rotX),sinX=Math.sin(rotX),cosY=Math.cos(rotY),sinY=Math.sin(rotY);
+    const corners3D=[[-1,-1,-1],[1,-1,-1],[1,1,-1],[-1,1,-1],[-1,-1,1],[1,-1,1],[1,1,1],[-1,1,1]];
+    function rot(v){let[px,py,pz]=v;let rx=px*cosY+pz*sinY;let rz=-px*sinY+pz*cosY;px=rx;pz=rz;let ry=py*cosX-pz*sinX;rz=py*sinX+pz*cosX;py=ry;pz=rz;return[px,py,pz]}
+    const fov=3.5;
+    function proj([px,py,pz]){const z=pz+fov;return[x+px*s/z*fov,y+py*s/z*fov,pz]}
+    const pts=corners3D.map(c=>proj(rot(c)));
+    const faces=[{verts:[4,5,6,7],val:1,norm:rot([0,0,1])},{verts:[1,0,3,2],val:6,norm:rot([0,0,-1])},{verts:[4,0,1,5],val:2,norm:rot([0,-1,0])},{verts:[7,6,2,3],val:5,norm:rot([0,1,0])},{verts:[5,1,2,6],val:3,norm:rot([1,0,0])},{verts:[0,4,7,3],val:4,norm:rot([-1,0,0])}];
+    faces.forEach(f=>{f.avgZ=f.verts.reduce((sum,i)=>sum+pts[i][2],0)/4});
+    faces.sort((a,b)=>a.avgZ-b.avgZ);
+    faces.forEach(face=>{
+      const lightDot=face.norm[2]*.5+face.norm[1]*(-.3)+face.norm[0]*.2;
+      if(lightDot<-.05)return;
+      const vs=face.verts.map(i=>pts[i]);
+      const bright=.55+lightDot*.45;const r=Math.round(220*bright+18);const g=Math.round(200*bright+14);const b=Math.round(170*bright+12);
+      ctx.beginPath();ctx.moveTo(vs[0][0],vs[0][1]);vs.slice(1).forEach(([fx,fy])=>ctx.lineTo(fx,fy));ctx.closePath();
+      ctx.fillStyle=`rgb(${r},${g},${b})`;ctx.fill();
+      ctx.strokeStyle=`rgba(100,80,50,${.3+lightDot*.2})`;ctx.lineWidth=.8;ctx.stroke();
+      drawDots(face.val,vs,lightDot);
+    });
+    ctx.restore();
+  }
+  function drawDots(val,vs,light){
+    function blerp(u,v){const top=[vs[0][0]+(vs[1][0]-vs[0][0])*u,vs[0][1]+(vs[1][1]-vs[0][1])*u];const bottom=[vs[3][0]+(vs[2][0]-vs[3][0])*u,vs[3][1]+(vs[2][1]-vs[3][1])*u];return[top[0]+(bottom[0]-top[0])*v,top[1]+(bottom[1]-top[1])*v]}
+    const layouts={1:[[.5,.5]],2:[[.3,.3],[.7,.7]],3:[[.3,.3],[.5,.5],[.7,.7]],4:[[.28,.28],[.72,.28],[.28,.72],[.72,.72]],5:[[.28,.28],[.72,.28],[.5,.5],[.28,.72],[.72,.72]],6:[[.28,.24],[.72,.24],[.28,.5],[.72,.5],[.28,.76],[.72,.76]]};
+    const dx=vs[1][0]-vs[0][0],dy=vs[1][1]-vs[0][1];const faceW=Math.sqrt(dx*dx+dy*dy);const dotR=faceW*.1;
+    const isOne=val===1;const dotBright=.3+light*.2;
+    (layouts[val]||[]).forEach(([u,v])=>{const[px,py]=blerp(u,v);ctx.beginPath();ctx.arc(px,py,Math.max(1.5,dotR),0,Math.PI*2);ctx.fillStyle=isOne?`rgba(200,50,30,${.85+dotBright*.15})`:`rgba(20,15,10,${.85+dotBright*.15})`;ctx.fill()});
+  }
+  function easeOutQuart(t){return 1-Math.pow(1-t,4)}
+  function getHeaderCenter(){const h1=document.getElementById('h1Title');const r=h1.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2}}
+  function frame(ts){
+    if(!startTime)startTime=ts;const elapsed=ts-startTime;const t=Math.min(elapsed/TOTAL,1);
+    ctx.clearRect(0,0,W,H);
+    if(t<1){
+      const spinT=Math.min(elapsed/SPIN_DURATION,1);const morphT=Math.max(0,(elapsed-SPIN_DURATION)/MORPH_DURATION);
+      const rotY=spinT*Math.PI*4+Math.PI*.25;const rotX=spinT*Math.PI*2.5+Math.PI*.18;
+      let dieX=cx2,dieY=cy2,curSize=dieSize,fadeAlpha=1;
+      if(morphT>0){const me=easeOutQuart(morphT);const target=getHeaderCenter();dieX=cx2+(target.x-cx2)*me;dieY=cy2+(target.y-cy2)*me;curSize=dieSize*(1-me*.85);fadeAlpha=1-me;ctx.fillStyle=`rgba(13,12,24,${me*0.0})`;ctx.fillRect(0,0,W,H)}
+      const grd=ctx.createRadialGradient(dieX,dieY,0,dieX,dieY,curSize*1.8);grd.addColorStop(0,`rgba(212,168,67,${.12*fadeAlpha})`);grd.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=grd;ctx.fillRect(0,0,W,H);
+      drawDie(dieX,dieY,curSize,rotX,rotY,fadeAlpha);
+      rafId=requestAnimationFrame(frame);
+    }else{onIntroDone()}
+  }
+  function onIntroDone(){
+    cancelAnimationFrame(rafId);introEl.classList.add('done');setTimeout(()=>introEl.remove(),700);
+    const page=document.querySelector('.page');page.classList.add('visible');
+    setTimeout(()=>document.getElementById('eyebrow').classList.add('in'),80);
+    document.querySelectorAll('.h1-char').forEach((c,i)=>{setTimeout(()=>c.classList.add('in'),160+i*90)});
+    setTimeout(()=>document.getElementById('subtitle').classList.add('in'),420);
+    const contentEls=[document.getElementById('nickBar'),document.getElementById('elSep'),document.getElementById('elLabel'),document.getElementById('countTabs'),document.getElementById('elRoll'),document.getElementById('canvasWrap')];
+    contentEls.forEach((el,i)=>{if(!el)return;setTimeout(()=>{el.classList.add('content-in');el.style.opacity=''},520+i*70)});
+    document.querySelectorAll('.history-bar,.history-scroll').forEach((el,i)=>{setTimeout(()=>el.classList.add('content-in'),800+i*60)});
+  }
+  setTimeout(()=>requestAnimationFrame(frame),120);
+})();
+</script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+// ═══════════════════════════════════════════════════
+// 3D DICE ENGINE (preserved from original)
+// ═══════════════════════════════════════════════════
+function makeFaceTex(val){
+  const S=512,cv=document.createElement('canvas');cv.width=cv.height=S;const cx=cv.getContext('2d');
+  const bg=cx.createLinearGradient(0,0,S,S);bg.addColorStop(0,'#d8c9a8');bg.addColorStop(.5,'#c9b890');bg.addColorStop(1,'#b8a07a');cx.fillStyle=bg;cx.fillRect(0,0,S,S);
+  for(let i=0;i<2000;i++){cx.fillStyle=`rgba(0,0,0,${Math.random()*.03})`;cx.fillRect(Math.random()*S,Math.random()*S,1,1)}
+  const vig=cx.createRadialGradient(S*.5,S*.5,S*.18,S*.5,S*.5,S*.78);vig.addColorStop(0,'rgba(0,0,0,0)');vig.addColorStop(.55,'rgba(0,0,0,0.04)');vig.addColorStop(1,'rgba(0,0,0,0.32)');cx.fillStyle=vig;cx.fillRect(0,0,S,S);
+  const L={1:[[.5,.5]],2:[[.32,.32],[.68,.68]],3:[[.32,.32],[.5,.5],[.68,.68]],4:[[.30,.30],[.70,.30],[.30,.70],[.70,.70]],5:[[.30,.30],[.70,.30],[.5,.5],[.30,.70],[.70,.70]],6:[[.30,.25],[.70,.25],[.30,.5],[.70,.5],[.30,.75],[.70,.75]]};
+  const DR=S*.078;
+  L[val].forEach(([nx,ny])=>{
+    const x=nx*S,y=ny*S,isOne=val===1;
+    const pit=cx.createRadialGradient(x,y+DR*.1,DR*.5,x,y,DR*1.35);pit.addColorStop(0,'rgba(0,0,0,0)');pit.addColorStop(.6,'rgba(0,0,0,0.15)');pit.addColorStop(1,'rgba(0,0,0,0.45)');cx.beginPath();cx.arc(x,y,DR*1.35,0,Math.PI*2);cx.fillStyle=pit;cx.fill();
+    const dg=cx.createRadialGradient(x-DR*.35,y-DR*.35,DR*.02,x+DR*.1,y+DR*.1,DR);
+    if(isOne){dg.addColorStop(0,'#ff8070');dg.addColorStop(.4,'#cc2818');dg.addColorStop(1,'#4a0400')}else{dg.addColorStop(0,'#606060');dg.addColorStop(.4,'#1a1a1a');dg.addColorStop(1,'#020202')}
+    cx.beginPath();cx.arc(x,y,DR,0,Math.PI*2);cx.fillStyle=dg;cx.fill();
+    const sp=cx.createRadialGradient(x-DR*.38,y-DR*.42,0,x-DR*.15,y-DR*.2,DR*.55);sp.addColorStop(0,isOne?'rgba(255,210,200,0.85)':'rgba(255,255,255,0.75)');sp.addColorStop(.5,isOne?'rgba(255,160,140,0.2)':'rgba(255,255,255,0.15)');sp.addColorStop(1,'rgba(255,255,255,0)');cx.beginPath();cx.arc(x,y,DR,0,Math.PI*2);cx.fillStyle=sp;cx.fill();
+  });
+  const t=new THREE.CanvasTexture(cv);t.anisotropy=16;return t;
+}
+
+function makeRoundedBox(size,radius){
+  const S=size/2,R=radius,segs=8;const allPos=[],allNrm=[],allUV=[],allIdx=[];let vertexOffset=0;
+  const faceDefs=[{center:[S,0,0],uDir:[0,0,-1],vDir:[0,1,0]},{center:[-S,0,0],uDir:[0,0,1],vDir:[0,1,0]},{center:[0,S,0],uDir:[1,0,0],vDir:[0,0,-1]},{center:[0,-S,0],uDir:[1,0,0],vDir:[0,0,1]},{center:[0,0,S],uDir:[1,0,0],vDir:[0,1,0]},{center:[0,0,-S],uDir:[-1,0,0],vDir:[0,1,0]}];
+  faceDefs.forEach(({center,uDir,vDir},fi)=>{
+    const faceVertStart=vertexOffset;const nBase=center.map(c=>c/S);
+    for(let j=0;j<=segs;j++){for(let i=0;i<=segs;i++){
+      const s=(i/segs)*2-1,t=(j/segs)*2-1;
+      const px=center[0]+uDir[0]*s*S+vDir[0]*t*S,py=center[1]+uDir[1]*s*S+vDir[1]*t*S,pz=center[2]+uDir[2]*s*S+vDir[2]*t*S;
+      const innerS=S-R;const cx2=Math.max(-innerS,Math.min(innerS,px)),cy2=Math.max(-innerS,Math.min(innerS,py)),cz2=Math.max(-innerS,Math.min(innerS,pz));
+      const dx=px-cx2,dy=py-cy2,dz=pz-cz2;const dl=Math.sqrt(dx*dx+dy*dy+dz*dz)||1e-9;
+      const fx=cx2+dx/dl*R,fy=cy2+dy/dl*R,fz=cz2+dz/dl*R;
+      const nx=dl<1e-6?nBase[0]:dx/dl,ny=dl<1e-6?nBase[1]:dy/dl,nz=dl<1e-6?nBase[2]:dz/dl;
+      allPos.push(fx,fy,fz);allNrm.push(nx,ny,nz);allUV.push((s+1)/2,(t+1)/2);vertexOffset++;
+    }}
+    const cols=segs+1;
+    for(let j=0;j<segs;j++){for(let i=0;i<segs;i++){const a=faceVertStart+j*cols+i,b=a+1,c=faceVertStart+(j+1)*cols+i,d=c+1;allIdx.push(a,b,c,b,d,c)}}
+  });
+  const geo=new THREE.BufferGeometry();
+  geo.setAttribute('position',new THREE.Float32BufferAttribute(allPos,3));
+  geo.setAttribute('normal',new THREE.Float32BufferAttribute(allNrm,3));
+  geo.setAttribute('uv',new THREE.Float32BufferAttribute(allUV,2));
+  geo.setIndex(allIdx);
+  const trisPerFace=segs*segs*2,idxPerFace=trisPerFace*3;
+  for(let f=0;f<6;f++)geo.addGroup(f*idxPerFace,idxPerFace,f);
+  return geo;
+}
+
+const wrap=document.getElementById('canvasWrap'),canvas=document.getElementById('c');
+const renderer=new THREE.WebGLRenderer({canvas,antialias:true,alpha:true});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputEncoding=THREE.sRGBEncoding;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.toneMappingExposure=.55;renderer.setClearColor(0x000000,0);
+const scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera(42,1,.1,100);
+const lightKey=new THREE.DirectionalLight(0xffe8b0,1.4);lightKey.position.set(5,9,6);lightKey.castShadow=true;lightKey.shadow.mapSize.set(2048,2048);lightKey.shadow.camera.near=1;lightKey.shadow.camera.far=40;lightKey.shadow.camera.left=-10;lightKey.shadow.camera.right=10;lightKey.shadow.camera.top=10;lightKey.shadow.camera.bottom=-10;lightKey.shadow.bias=-.001;scene.add(lightKey);
+const lightFill=new THREE.DirectionalLight(0x3848a8,.35);lightFill.position.set(-6,2,-5);scene.add(lightFill);
+const lightRim=new THREE.DirectionalLight(0xc07828,.55);lightRim.position.set(0,-6,-5);scene.add(lightRim);
+const lightAmb=new THREE.AmbientLight(0x0e0c18,5.0);scene.add(lightAmb);
+const floorMesh=new THREE.Mesh(new THREE.PlaneGeometry(40,40),new THREE.ShadowMaterial({opacity:.5}));floorMesh.rotation.x=-Math.PI/2;floorMesh.position.y=-1.5;floorMesh.receiveShadow=true;scene.add(floorMesh);
+const faceTex={};for(let v=1;v<=6;v++)faceTex[v]=makeFaceTex(v);
+const dieGeo=makeRoundedBox(1.8,.18);
+const FACE_ORDER=[3,4,2,5,1,6];
+const FACE_ROT={1:[0,0],6:[0,Math.PI],2:[Math.PI/2,0],5:[-Math.PI/2,0],3:[0,-Math.PI/2],4:[0,Math.PI/2]};
+
+function makeDieMesh(){
+  const mats=FACE_ORDER.map(v=>new THREE.MeshStandardMaterial({map:faceTex[v],roughness:.72,metalness:0,envMapIntensity:0}));
+  const mesh=new THREE.Mesh(dieGeo,mats);mesh.castShadow=true;mesh.receiveShadow=true;return mesh;
+}
+
+let dice=[],isRolling=false,doneTriggered=false;
+function getXPositions(n){const sp=n<=2?2.5:n<=4?2.2:2.0;return Array.from({length:n},(_,i)=>(i-(n-1)/2)*sp)}
+function buildDice(n){
+  dice.forEach(d=>scene.remove(d.mesh));dice=[];
+  getXPositions(n).forEach(x=>{const mesh=makeDieMesh();mesh.position.set(x,0,0);const[rx,ry]=FACE_ROT[1];mesh.rotation.set(rx,ry,0);scene.add(mesh);dice.push({mesh,result:1,anim:null})});
+  fitCamera(n);
+}
+function fitCamera(n){const w=wrap.clientWidth,h=wrap.clientHeight;camera.aspect=w/h;camera.updateProjectionMatrix();const spread=Math.max(0,n-1)*1.1;camera.position.set(0,1.8,5+spread);camera.lookAt(0,-.1,0)}
+buildDice(1);
+function onResize(){const w=wrap.clientWidth,h=wrap.clientHeight;renderer.setSize(w,h);fitCamera(dice.length)}
+new ResizeObserver(onResize).observe(wrap);onResize();
+
+let tickClock=0;
+(function animate(){
+  requestAnimationFrame(animate);tickClock+=.016;let allSettled=true;
+  dice.forEach((d,i)=>{
+    if(d.anim){
+      const now=Date.now();if(now<d.anim.startAt){allSettled=false;return}
+      const elapsed=(now-d.anim.startAt)/1000,a=d.anim;
+      if(elapsed<a.dur){allSettled=false;const p=elapsed/a.dur,e=1-Math.pow(1-p,4);
+        d.mesh.rotation.x=a.rx0+a.dRx*e;d.mesh.rotation.y=a.ry0+a.dRy*e;d.mesh.rotation.z=a.rz0+a.dRz*e;
+        const bounce=Math.max(0,Math.sin(p*Math.PI*2.5))*(1-p)*(1-p)*2.5;d.mesh.position.y=bounce;d.mesh.position.x=a.x0+Math.sin(p*Math.PI*3+i*1.4)*.1*(1-p);
+      }else{const[frx,fry]=FACE_ROT[d.result];d.mesh.rotation.set(frx,fry,0);d.mesh.position.set(a.x0,0,0);d.anim=null}
+    }else{
+      const target=Math.sin(tickClock*.65+i*1.4)*.04;d.mesh.position.y+=(target-d.mesh.position.y)*.06;
+      const tiltTarget=Math.sin(tickClock*.4+i*.9)*.01;d.mesh.rotation.z+=(tiltTarget-d.mesh.rotation.z)*.04;
+    }
+  });
+  if(allSettled&&isRolling&&!doneTriggered){doneTriggered=true;onRollDone()}
+  renderer.render(scene,camera);
+})();
+
+// ═══════════════════════════════════════════════════
+// NETWORKING & GAME LOGIC
+// ═══════════════════════════════════════════════════
+let myNickname = '';
+let allRecords = [];
+let challengeTarget = null;
+let ws = null;
+let isAdmin = false;
+
+// ── WebSocket 连接 ──────────────────────────────────
+function connectWS() {
+  const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+  ws = new WebSocket(`${proto}://${location.host}`);
+
+  ws.onopen = () => {};
+
+  ws.onmessage = (e) => {
+    const msg = JSON.parse(e.data);
+
+    if (msg.type === 'init') {
+      myNickname = msg.nickname;
+      document.getElementById('myNickname').textContent = myNickname;
+      allRecords = msg.records;
+      renderHistory();
+    }
+
+    if (msg.type === 'new_record') {
+      allRecords.unshift(msg.record);
+      renderHistoryWithNewItem();
+    }
+
+    if (msg.type === 'challenge_result') {
+      const rec = allRecords.find(r => r.id === msg.recordId);
+      if (rec) {
+        rec.challenges.push(msg.challenge);
+        renderHistory();
+      }
+    }
+
+    if (msg.type === 'admin_login_ok') {
+      isAdmin = true;
+      document.getElementById('adminEntry').textContent = '管理员 ✓';
+      document.getElementById('adminEntry').classList.add('logged-in');
+      closeAdminLogin();
+      showToast('管理员登录成功', 'success');
+      renderHistory();
+    }
+    if (msg.type === 'admin_login_fail') {
+      document.getElementById('adminError').style.display = 'block';
+    }
+
+    if (msg.type === 'record_deleted') {
+      allRecords = allRecords.filter(r => r.id !== msg.recordId);
+      renderHistory();
+    }
+    if (msg.type === 'challenge_deleted') {
+      const rec = allRecords.find(r => r.id === msg.recordId);
+      if (rec) { rec.challenges.splice(msg.challengeIndex, 1); renderHistory(); }
+    }
+  };
+
+  ws.onclose = () => {
+    document.getElementById('myNickname').textContent = '断开连接…';
+    setTimeout(connectWS, 2000);
+  };
+}
+connectWS();
+
+// ── Toast ────────────────────────────────────────────
+function showToast(text, type = 'info') {
+  const container = document.getElementById('toastContainer');
+  const el = document.createElement('div');
+  el.className = `toast ${type}`;
+  el.textContent = text;
+  container.appendChild(el);
+  setTimeout(() => el.remove(), 2600);
+}
+
+// ── 挑战模式 ─────────────────────────────────────────
+function enterChallengeMode(record) {
+  challengeTarget = record;
+  // 隐藏普通模式
+  document.getElementById('normalMode').style.display = 'none';
+  // 显示挑战横幅
+  const banner = document.getElementById('challengeBanner');
+  banner.classList.add('show');
+  banner.style.opacity = '1';
+  document.getElementById('cbInfo').innerHTML =
+    `对战 <strong>${escapeHtml(record.nickname)}</strong> ${record.time} 的掷骰`;
+  document.getElementById('cbDice').innerHTML =
+    record.results.map(v => dieSVG(v, '', false)).join('') +
+    `<span style="font-family:'Playfair Display',serif;font-size:20px;font-weight:700;color:var(--gold);margin-left:8px">= ${record.sum}</span>`;
+
+  // 按钮变为挑战样式
+  const btn = document.getElementById('rollBtn');
+  btn.classList.add('challenge-mode');
+  document.getElementById('rollBtnText').textContent = '⚔ 掷骰挑战';
+
+  // 自动设置骰子数量
+  buildDice(record.diceCount);
+
+  showToast(`将以对战形式挑战 ${record.nickname}`, 'info');
+}
+
+function exitChallengeMode() {
+  challengeTarget = null;
+  document.getElementById('normalMode').style.display = '';
+  const banner = document.getElementById('challengeBanner');
+  banner.classList.remove('show');
+
+  const btn = document.getElementById('rollBtn');
+  btn.classList.remove('challenge-mode');
+  document.getElementById('rollBtnText').textContent = '⚄ 掷骰子';
+
+  // 恢复当前选中的骰子数量
+  const activeTab = document.querySelector('.tab.active');
+  if (activeTab) buildDice(parseInt(activeTab.dataset.count));
+}
+
+document.getElementById('cancelChallenge').addEventListener('click', exitChallengeMode);
+
+// ── 掷骰子 ──────────────────────────────────────────
+function rollDice() {
+  if (isRolling) return;
+  if (!ws || ws.readyState !== 1) { showToast('网络未连接，请稍后再试', 'error'); return; }
+
+  isRolling = true;
+  doneTriggered = false;
+  document.getElementById('rollBtn').classList.add('rolling');
+  document.getElementById('sumDisplay').classList.remove('show');
+
+  const results = dice.map(() => Math.ceil(Math.random() * 6));
+
+  dice.forEach((d, i) => {
+    d.result = results[i];
+    const [frx, fry] = FACE_ROT[d.result];
+    const spins = 5 + Math.floor(Math.random() * 4);
+    const signX = Math.random() > .5 ? 1 : -1;
+    const signY = Math.random() > .5 ? 1 : -1;
+    d.anim = {
+      startAt: Date.now() + i * 80,
+      dur: 1.1 + Math.random() * .3,
+      rx0: d.mesh.rotation.x, ry0: d.mesh.rotation.y, rz0: d.mesh.rotation.z,
+      dRx: signX * spins * Math.PI * 2 + (frx - d.mesh.rotation.x),
+      dRy: signY * spins * Math.PI * 2 + (fry - d.mesh.rotation.y),
+      dRz: (Math.random() - .5) * Math.PI * 3,
+      x0: d.mesh.position.x,
+    };
+  });
+}
+
+function onRollDone() {
+  const results = dice.map(d => d.result);
+  const sum = results.reduce((a, b) => a + b, 0);
+
+  document.getElementById('sumValue').textContent = sum;
+  document.getElementById('sumDetail').textContent =
+    results.length > 1 ? results.join(' + ') + ' = ' + sum : `点数 ${sum}`;
+  document.getElementById('sumDisplay').classList.add('show');
+
+  if (challengeTarget) {
+    // 挑战模式 — 发送挑战
+    ws.send(JSON.stringify({
+      type: 'challenge',
+      recordId: challengeTarget.id,
+      results,
+      sum
+    }));
+
+    // 显示对战结果弹窗
+    const win = sum > challengeTarget.sum;
+    const draw = sum === challengeTarget.sum;
+    showResultModal(win, draw, sum, challengeTarget.sum, challengeTarget.nickname);
+
+    exitChallengeMode();
+  } else {
+    // 普通模式 — 发送记录
+    ws.send(JSON.stringify({ type: 'roll', results, sum }));
+  }
+
+  document.getElementById('rollBtn').classList.remove('rolling');
+  isRolling = false;
+}
+
+// ── 对战结果弹窗 ─────────────────────────────────────
+function showResultModal(win, draw, mySum, opponentSum, opponentName) {
+  const overlay = document.getElementById('modalOverlay');
+  const content = document.getElementById('modalContent');
+
+  let icon, title, cls;
+  if (draw) { icon = '🤝'; title = '平局！'; cls = 'draw'; }
+  else if (win) { icon = '🏆'; title = '挑战成功！'; cls = 'win'; }
+  else { icon = '💔'; title = '挑战失败'; cls = 'lose'; }
+
+  content.innerHTML = `
+    <div class="m-icon">${icon}</div>
+    <div class="m-title ${cls}">${title}</div>
+    <div class="m-vs">
+      <div class="m-side">
+        <div class="m-side-label">你</div>
+        <div class="m-side-sum">${mySum}</div>
+      </div>
+      <div class="m-vs-text">VS</div>
+      <div class="m-side">
+        <div class="m-side-label">${escapeHtml(opponentName)}</div>
+        <div class="m-side-sum opponent">${opponentSum}</div>
+      </div>
+    </div>
+    <button class="m-close" onclick="closeModal()">确 定</button>
+  `;
+  overlay.classList.add('show');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('show');
+}
+
+// ── Tabs ─────────────────────────────────────────────
+document.getElementById('countTabs').addEventListener('click', e => {
+  const tab = e.target.closest('.tab');
+  if (!tab || isRolling || challengeTarget) return;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  tab.classList.add('active');
+  buildDice(parseInt(tab.dataset.count));
+  document.getElementById('sumDisplay').classList.remove('show');
+});
+
+// ── History SVG ──────────────────────────────────────
+function dieSVG(v, extraStyle, small) {
+  const P={tl:[10,10],tr:[24,10],ml:[10,17],mr:[24,17],bl:[10,24],br:[24,24],cc:[17,17]};
+  const L={1:[P.cc],2:[P.tl,P.br],3:[P.tl,P.cc,P.br],4:[P.tl,P.tr,P.bl,P.br],5:[P.tl,P.tr,P.cc,P.bl,P.br],6:[P.tl,P.tr,P.ml,P.mr,P.bl,P.br]};
+  const dots=L[v],r=v===1?3.2:2.6;const uid=Math.random().toString(36).slice(2,8);
+  const cls = small ? 's-die-svg' : 'h-die-svg';
+  return `<svg class="${cls}" viewBox="0 0 34 34" xmlns="http://www.w3.org/2000/svg" style="${extraStyle||''}">
+    <defs><radialGradient id="fg${uid}" cx="38%" cy="32%" r="68%"><stop offset="0%" stop-color="#f8f2e2"/><stop offset="55%" stop-color="#e8d8be"/><stop offset="100%" stop-color="#c8b090"/></radialGradient>
+    <radialGradient id="dg${uid}" cx="28%" cy="26%" r="74%"><stop offset="0%" stop-color="${v===1?'#ff7060':'#5a5a5a'}"/><stop offset="45%" stop-color="${v===1?'#c03020':'#181818'}"/><stop offset="100%" stop-color="${v===1?'#600800':'#020202'}"/></radialGradient>
+    <filter id="sh${uid}" x="-40%" y="-40%" width="180%" height="180%"><feDropShadow dx="0" dy="1.5" stdDeviation="1.2" flood-color="rgba(0,0,0,0.5)"/></filter></defs>
+    <rect x="1.5" y="1.5" width="31" height="31" rx="5.5" fill="url(#fg${uid})" stroke="${v===6?'#c09830':v===1?'#901808':'#b0a080'}" stroke-width="0.7" filter="url(#sh${uid})"/>
+    <rect x="1.5" y="1.5" width="31" height="9" rx="4" fill="rgba(255,255,255,0.3)"/>
+    <rect x="1.5" y="24" width="31" height="9" rx="4" fill="rgba(0,0,0,0.12)"/>
+    ${dots.map(pt=>`<circle cx="${pt[0]}" cy="${pt[1]}" r="${r*1.22}" fill="rgba(0,0,0,0.22)"/><circle cx="${pt[0]}" cy="${pt[1]}" r="${r}" fill="url(#dg${uid})"/><circle cx="${pt[0]-r*.35}" cy="${pt[1]-r*.38}" r="${r*.38}" fill="${v===1?'rgba(255,190,170,0.5)':'rgba(255,255,255,0.28)'}"/>`).join('')}
+  </svg>`;
+}
+
+function escapeHtml(str) {
+  const d = document.createElement('div');
+  d.textContent = str;
+  return d.innerHTML;
+}
+
+// ── 渲染历史记录 ─────────────────────────────────────
+function makeItemHTML(r, entering) {
+  const isSelf = r.nickname === myNickname;
+  const challengeBtn = isSelf ? '' :
+    `<button class="challenge-btn" onclick="onClickChallenge(${r.id})">⚔ 挑战</button>`;
+
+  const adminDelRecord = isAdmin ? `<button class="admin-del" onclick="adminDeleteRecord(${r.id})">删除</button>` : '';
+
+  let subHTML = '';
+  if (r.challenges && r.challenges.length > 0) {
+    subHTML = '<div class="sub-records">' + r.challenges.map((c, ci) => {
+      const resultCls = c.draw ? 'draw' : (c.win ? 'win' : 'lose');
+      const resultText = c.draw ? '平局' : (c.win ? '挑战成功' : '挑战失败');
+      const adminDelChallenge = isAdmin ? `<button class="admin-del" onclick="adminDeleteChallenge(${r.id},${ci})">删除</button>` : '';
+      return `<div class="sub-item">
+        <span class="s-nick">${escapeHtml(c.nickname)}</span>
+        <div class="s-dice">${c.results.map(v => dieSVG(v, '', true)).join('')}</div>
+        <span class="s-sum" style="color:${c.draw?'#f1c40f':c.win?'var(--green)':'var(--red)'}">${c.sum}</span>
+        <span class="s-result ${resultCls}">${resultText}</span>
+        ${adminDelChallenge}
+      </div>`;
+    }).join('') + '</div>';
+  }
+
+  return `<div class="history-item${entering ? ' entering' : ''}" data-id="${r.id}">
+    <div class="h-row">
+      <div class="h-nick${isSelf ? ' self' : ''}">${escapeHtml(r.nickname)}</div>
+      <div class="h-time">${r.time}</div>
+      <div class="h-dice">${r.results.map((v, i) => {
+        const delay = entering ? (0.06 + i * 0.07).toFixed(2) : '0';
+        return dieSVG(v, entering ? `animation-delay:${delay}s` : '');
+      }).join('')}</div>
+      <div class="h-badge">${r.results.length}枚</div>
+      <div class="h-sum" ${entering ? 'style="animation-delay:.18s"' : ''}>${r.sum}</div>
+      ${challengeBtn}
+      ${adminDelRecord}
+    </div>
+    ${subHTML}
+  </div>`;
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  if (!allRecords.length) {
+    list.innerHTML = '<div class="empty-msg">暂无记录，开始掷骰吧…</div>';
+    return;
+  }
+  list.innerHTML = allRecords.map(r => makeItemHTML(r, false)).join('');
+}
+
+function renderHistoryWithNewItem() {
+  const list = document.getElementById('historyList');
+  const empty = list.querySelector('.empty-msg');
+  if (empty) empty.remove();
+
+  const div = document.createElement('div');
+  div.innerHTML = makeItemHTML(allRecords[0], true);
+  const newItem = div.firstElementChild;
+  list.prepend(newItem);
+
+  const maxDelay = (allRecords[0].results.length - 1) * 0.07 + 0.45 + 0.15;
+  setTimeout(() => newItem.classList.remove('entering'), maxDelay * 1000);
+
+  // 限制 DOM 节点
+  while (list.children.length > 100) list.lastChild.remove();
+}
+
+// ── 挑战按钮点击 ─────────────────────────────────────
+function onClickChallenge(recordId) {
+  if (isRolling) return;
+  const record = allRecords.find(r => r.id === recordId);
+  if (!record) return;
+  if (record.nickname === myNickname) { showToast('不能挑战自己的记录哦', 'error'); return; }
+  enterChallengeMode(record);
+}
+
+// ── 管理员功能 ──────────────────────────────────────
+function toggleAdminLogin() {
+  if (isAdmin) {
+    // 已登录则登出
+    isAdmin = false;
+    ws.send(JSON.stringify({ type: 'admin_logout' }));
+    document.getElementById('adminEntry').textContent = '管理员登录';
+    document.getElementById('adminEntry').classList.remove('logged-in');
+    showToast('已退出管理员', 'info');
+    renderHistory();
+    return;
+  }
+  document.getElementById('adminLoginModal').classList.add('show');
+  document.getElementById('adminUser').value = '';
+  document.getElementById('adminPass').value = '';
+  document.getElementById('adminError').style.display = 'none';
+  document.getElementById('adminUser').focus();
+}
+
+function closeAdminLogin() {
+  document.getElementById('adminLoginModal').classList.remove('show');
+}
+
+function doAdminLogin() {
+  const u = document.getElementById('adminUser').value.trim();
+  const p = document.getElementById('adminPass').value;
+  if (!u || !p) return;
+  document.getElementById('adminError').style.display = 'none';
+  ws.send(JSON.stringify({ type: 'admin_login', username: u, password: p }));
+}
+
+// 回车提交登录
+document.getElementById('adminPass').addEventListener('keydown', e => {
+  if (e.code === 'Enter') doAdminLogin();
+});
+
+function adminDeleteRecord(recordId) {
+  if (!isAdmin) return;
+  ws.send(JSON.stringify({ type: 'admin_delete_record', recordId }));
+}
+
+function adminDeleteChallenge(recordId, challengeIndex) {
+  if (!isAdmin) return;
+  ws.send(JSON.stringify({ type: 'admin_delete_challenge', recordId, challengeIndex }));
+}
+
+// ── 键盘快捷键 ──────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if ((e.code === 'Space' || e.code === 'Enter') && document.activeElement === document.body) {
+    e.preventDefault(); rollDice();
+  }
+  if (e.code === 'Escape') {
+    if (document.getElementById('adminLoginModal').classList.contains('show')) closeAdminLogin();
+    else if (document.getElementById('modalOverlay').classList.contains('show')) closeModal();
+    else if (challengeTarget) exitChallengeMode();
+  }
+});
+</script>
+</body>
+</html>
