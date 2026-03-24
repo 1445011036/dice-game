@@ -459,13 +459,17 @@ function connectWS() {
   const proto = location.protocol === 'https:' ? 'wss' : 'ws';
   ws = new WebSocket(`${proto}://${location.host}`);
 
-  ws.onopen = () => {};
+  ws.onopen = () => {
+    const saved = localStorage.getItem('dice_nickname');
+    ws.send(JSON.stringify({ type: 'hello', nickname: saved || '' }));
+  };
 
   ws.onmessage = (e) => {
     const msg = JSON.parse(e.data);
 
     if (msg.type === 'init') {
       myNickname = msg.nickname;
+      localStorage.setItem('dice_nickname', myNickname);
       document.getElementById('myNickname').textContent = myNickname;
       allRecords = msg.records;
       renderHistory();

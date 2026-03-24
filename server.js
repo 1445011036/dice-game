@@ -36,21 +36,31 @@ let nextId = 1;
 
 // ── WebSocket ────────────────────────────────────────
 wss.on('connection', (ws) => {
-  const nickname = randomNickname();
-  ws.nickname = nickname;
-
-  // 发送初始化：昵称 + 现有记录
-  ws.send(JSON.stringify({
-    type: 'init',
-    nickname,
-    records
-  }));
-
+  ws.nickname = null;
   ws.isAdmin = false;
+  ws.initialized = false;
 
   ws.on('message', (raw) => {
     let msg;
     try { msg = JSON.parse(raw); } catch { return; }
+
+    // 客户端发送初始化请求（带或不带已有昵称）
+    if (msg.type === 'hello') {
+      if (msg.nickname && msg.nickname.trim()) {
+        ws.nickname = msg.nickname.trim();
+      } else {
+        ws.nickname = randomNickname();
+      }
+      ws.initialized = true;
+      ws.send(JSON.stringify({
+        type: 'init',
+        nickname: ws.nickname,
+        records
+      }));
+      return;
+    }
+
+    if (!ws.initialized) return;
 
     // 管理员登录
     if (msg.type === 'admin_login') {
