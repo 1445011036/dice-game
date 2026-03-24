@@ -165,6 +165,20 @@ h1{font-family:'Playfair Display',serif;font-size:clamp(34px,7vw,60px);font-weig
 /* 管理员删除按钮 */
 .admin-del{background:none;border:1px solid #3a1a1a;border-radius:4px;color:#6a3030;font-size:10px;padding:2px 7px;cursor:pointer;transition:all .18s;white-space:nowrap;margin-left:4px}
 .admin-del:hover{border-color:var(--red);color:var(--red);background:rgba(231,76,60,.1)}
+.admin-edit{background:none;border:1px solid #1a3a2a;border-radius:4px;color:#2a6a3a;font-size:10px;padding:2px 7px;cursor:pointer;transition:all .18s;white-space:nowrap;margin-left:2px}
+.admin-edit:hover{border-color:var(--green);color:var(--green);background:rgba(46,204,113,.1)}
+/* 编辑骰子弹窗 */
+.edit-dice-modal{position:fixed;inset:0;z-index:960;background:rgba(0,0,0,.65);display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.edit-dice-modal.show{display:flex}
+.edit-dice-box{background:#1a1630;border:1px solid var(--gold-d);border-radius:14px;padding:24px 20px;width:340px;text-align:center}
+.edit-dice-box h3{font-family:'Playfair Display',serif;color:var(--gold);font-size:16px;margin-bottom:16px}
+.edit-dice-list{display:flex;flex-direction:column;gap:10px;margin-bottom:18px}
+.edit-dice-row{display:flex;align-items:center;justify-content:center;gap:10px}
+.edit-dice-row label{font-size:12px;color:var(--cream-d);min-width:50px;text-align:right}
+.edit-dice-row .ed-btns{display:flex;gap:4px}
+.edit-dice-row .ed-btn{width:36px;height:36px;border-radius:8px;border:1.5px solid #2e2a44;background:var(--surf);color:#6a6080;font-family:'Playfair Display',serif;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
+.edit-dice-row .ed-btn:hover{border-color:var(--gold-d);color:var(--gold)}
+.edit-dice-row .ed-btn.selected{border-color:var(--gold);color:var(--bg);background:var(--gold);box-shadow:0 0 12px rgba(212,168,67,.25)}
 
 @media(max-width:480px){.page{padding:20px 12px 56px}#canvasWrap{height:clamp(160px,42vw,220px)}.h-nick{max-width:70px}.sub-item .s-nick{max-width:60px}}
 
@@ -266,6 +280,18 @@ header{overflow:visible}
       <button class="al-btn primary" onclick="doAdminLogin()">登录</button>
     </div>
     <div class="al-error" id="adminError">账号或密码错误</div>
+  </div>
+</div>
+
+<!-- 编辑骰子弹窗 -->
+<div class="edit-dice-modal" id="editDiceModal">
+  <div class="edit-dice-box">
+    <h3>编辑骰子点数</h3>
+    <div class="edit-dice-list" id="editDiceList"></div>
+    <div class="al-btns">
+      <button class="al-btn secondary" onclick="closeEditDice()">取消</button>
+      <button class="al-btn primary" onclick="saveEditDice()">保存</button>
+    </div>
   </div>
 </div>
 
@@ -500,6 +526,12 @@ function connectWS() {
       document.getElementById('adminError').style.display = 'block';
     }
 
+    if (msg.type === 'record_updated') {
+      const idx = allRecords.findIndex(r => r.id === msg.record.id);
+      if (idx !== -1) allRecords[idx] = msg.record;
+      renderHistory();
+    }
+
     if (msg.type === 'record_deleted') {
       allRecords = allRecords.filter(r => r.id !== msg.recordId);
       renderHistory();
@@ -706,6 +738,7 @@ function makeItemHTML(r, entering) {
     `<button class="challenge-btn" onclick="onClickChallenge(${r.id})">⚔ 挑战</button>`;
 
   const adminDelRecord = isAdmin ? `<button class="admin-del" onclick="adminDeleteRecord(${r.id})">删除</button>` : '';
+  const adminEditRecord = isAdmin ? `<button class="admin-edit" onclick="openEditDice(${r.id})">编辑</button>` : '';
 
   let subHTML = '';
   if (r.challenges && r.challenges.length > 0) {
@@ -734,6 +767,7 @@ function makeItemHTML(r, entering) {
       <div class="h-badge">${r.results.length}枚</div>
       <div class="h-sum" ${entering ? 'style="animation-delay:.18s"' : ''}>${r.sum}</div>
       ${challengeBtn}
+      ${adminEditRecord}
       ${adminDelRecord}
     </div>
     ${subHTML}
@@ -821,13 +855,61 @@ function adminDeleteChallenge(recordId, challengeIndex) {
   ws.send(JSON.stringify({ type: 'admin_delete_challenge', recordId, challengeIndex }));
 }
 
+// ── 编辑骰子点数 ────────────────────────────────────
+let editingRecordId = null;
+let editingValues = [];
+
+function openEditDice(recordId) {
+  const rec = allRecords.find(r => r.id === recordId);
+  if (!rec || !isAdmin) return;
+  editingRecordId = recordId;
+  editingValues = [...rec.results];
+  renderEditDice();
+  document.getElementById('editDiceModal').classList.add('show');
+}
+
+function renderEditDice() {
+  const list = document.getElementById('editDiceList');
+  list.innerHTML = editingValues.map((val, i) => {
+    const btns = [1,2,3,4,5,6].map(n =>
+      `<button class="ed-btn${n === val ? ' selected' : ''}" onclick="setEditDie(${i},${n})">${n}</button>`
+    ).join('');
+    return `<div class="edit-dice-row">
+      <label>骰子 ${i + 1}：</label>
+      <div class="ed-btns">${btns}</div>
+    </div>`;
+  }).join('');
+}
+
+function setEditDie(index, value) {
+  editingValues[index] = value;
+  renderEditDice();
+}
+
+function closeEditDice() {
+  document.getElementById('editDiceModal').classList.remove('show');
+  editingRecordId = null;
+}
+
+function saveEditDice() {
+  if (!editingRecordId || !isAdmin) return;
+  ws.send(JSON.stringify({
+    type: 'admin_edit_results',
+    recordId: editingRecordId,
+    results: editingValues
+  }));
+  closeEditDice();
+  showToast('骰子点数已修改', 'success');
+}
+
 // ── 键盘快捷键 ──────────────────────────────────────
 document.addEventListener('keydown', e => {
   if ((e.code === 'Space' || e.code === 'Enter') && document.activeElement === document.body) {
     e.preventDefault(); rollDice();
   }
   if (e.code === 'Escape') {
-    if (document.getElementById('adminLoginModal').classList.contains('show')) closeAdminLogin();
+    if (document.getElementById('editDiceModal').classList.contains('show')) closeEditDice();
+    else if (document.getElementById('adminLoginModal').classList.contains('show')) closeAdminLogin();
     else if (document.getElementById('modalOverlay').classList.contains('show')) closeModal();
     else if (challengeTarget) exitChallengeMode();
   }

@@ -87,6 +87,21 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // 管理员编辑骰子点数
+    if (msg.type === 'admin_edit_results') {
+      if (!ws.isAdmin) return;
+      const rec = records.find(r => r.id === msg.recordId);
+      if (!rec) return;
+      // 验证点数合法性
+      const newResults = msg.results;
+      if (!Array.isArray(newResults) || newResults.some(v => v < 1 || v > 6 || !Number.isInteger(v))) return;
+      rec.results = newResults;
+      rec.sum = newResults.reduce((a, b) => a + b, 0);
+      rec.diceCount = newResults.length;
+      broadcast({ type: 'record_updated', record: rec });
+      return;
+    }
+
     // 管理员删除某条挑战子记录
     if (msg.type === 'admin_delete_challenge') {
       if (!ws.isAdmin) return;
