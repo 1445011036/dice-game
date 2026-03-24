@@ -60,6 +60,35 @@ wss.on('connection', (ws) => {
       return;
     }
 
+    // 修改昵称
+    if (msg.type === 'change_nickname') {
+      const newName = (msg.nickname || '').trim();
+      if (!newName || newName.length > 20) {
+        ws.send(JSON.stringify({ type: 'nickname_error', reason: '昵称不能为空且不超过20字' }));
+        return;
+      }
+      // 检查是否重复（其他在线用户 + 历史记录中的昵称）
+      const usedNames = new Set();
+      wss.clients.forEach(c => { if (c !== ws && c.nickname) usedNames.add(c.nickname); });
+      records.forEach(r => {
+        usedNames.add(r.nickname);
+        r.challenges.forEach(c => usedNames.add(c.nickname));
+      });
+      if (usedNames.has(newName)) {
+        ws.send(JSON.stringify({ type: 'nickname_error', reason: '该昵称已经有人使用了，换一个吧' }));
+        return;
+      }
+      const oldName = ws.nickname;
+      ws.nickname = newName;
+      // 更新历史记录中的旧昵称
+      records.forEach(r => {
+        if (r.nickname === oldName) r.nickname = newName;
+        r.challenges.forEach(c => { if (c.nickname === oldName) c.nickname = newName; });
+      });
+      broadcast({ type: 'nickname_changed', oldName, newName, records });
+      return;
+    }
+
     if (!ws.initialized) return;
 
     // 管理员登录

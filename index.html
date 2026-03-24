@@ -16,6 +16,8 @@ body::before{content:'';position:fixed;inset:0;background:radial-gradient(ellips
 .nick-bar{display:flex;align-items:center;justify-content:center;gap:8px;margin-bottom:10px;padding:8px 16px;background:var(--surf);border:1px solid #252338;border-radius:8px}
 .nick-label{font-size:11px;color:var(--cream-d);letter-spacing:.1em}
 .nick-name{font-family:'Playfair Display',serif;font-size:14px;color:var(--gold-l);font-weight:700}
+.nick-edit-btn{background:none;border:none;color:var(--gold-d);cursor:pointer;font-size:13px;padding:2px 4px;transition:color .2s;line-height:1}
+.nick-edit-btn:hover{color:var(--gold-l)}
 .online-dot{width:7px;height:7px;background:var(--green);border-radius:50%;margin-left:6px;box-shadow:0 0 6px rgba(46,204,113,.5)}
 .online-count{font-size:11px;color:var(--cream-d)}
 
@@ -179,6 +181,14 @@ h1{font-family:'Playfair Display',serif;font-size:clamp(34px,7vw,60px);font-weig
 .edit-dice-row .ed-btn{width:36px;height:36px;border-radius:8px;border:1.5px solid #2e2a44;background:var(--surf);color:#6a6080;font-family:'Playfair Display',serif;font-size:16px;font-weight:700;cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center}
 .edit-dice-row .ed-btn:hover{border-color:var(--gold-d);color:var(--gold)}
 .edit-dice-row .ed-btn.selected{border-color:var(--gold);color:var(--bg);background:var(--gold);box-shadow:0 0 12px rgba(212,168,67,.25)}
+/* 昵称编辑弹窗 */
+.nick-modal{position:fixed;inset:0;z-index:955;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;backdrop-filter:blur(3px)}
+.nick-modal.show{display:flex}
+.nick-modal-box{background:#1a1630;border:1px solid var(--gold-d);border-radius:12px;padding:24px 20px;width:300px;text-align:center}
+.nick-modal-box h3{font-family:'Playfair Display',serif;color:var(--gold);font-size:16px;margin-bottom:14px}
+.nick-modal-box input{width:100%;padding:10px 12px;background:#0d0c18;border:1px solid #2e2a44;border-radius:6px;color:var(--cream);font-family:'Noto Serif SC',serif;font-size:14px;outline:none;text-align:center}
+.nick-modal-box input:focus{border-color:var(--gold-d)}
+.nick-modal-box .nick-error{color:var(--red);font-size:11px;margin-top:8px;min-height:16px}
 
 @media(max-width:480px){.page{padding:20px 12px 56px}#canvasWrap{height:clamp(160px,42vw,220px)}.h-nick{max-width:70px}.sub-item .s-nick{max-width:60px}}
 
@@ -213,6 +223,7 @@ header{overflow:visible}
   <div class="nick-bar" id="nickBar">
     <span class="nick-label">你的昵称：</span>
     <span class="nick-name" id="myNickname">连接中…</span>
+    <button class="nick-edit-btn" onclick="openNickEdit()" title="修改昵称">✎</button>
     <span class="online-dot"></span>
     <span class="online-count" id="onlineCount"></span>
   </div>
@@ -280,6 +291,19 @@ header{overflow:visible}
       <button class="al-btn primary" onclick="doAdminLogin()">登录</button>
     </div>
     <div class="al-error" id="adminError">账号或密码错误</div>
+  </div>
+</div>
+
+<!-- 昵称编辑弹窗 -->
+<div class="nick-modal" id="nickModal">
+  <div class="nick-modal-box">
+    <h3>修改昵称</h3>
+    <input type="text" id="nickInput" placeholder="输入新昵称" maxlength="20" autocomplete="off">
+    <div class="nick-error" id="nickError"></div>
+    <div class="al-btns" style="margin-top:12px">
+      <button class="al-btn secondary" onclick="closeNickEdit()">取消</button>
+      <button class="al-btn primary" onclick="submitNickEdit()">确认</button>
+    </div>
   </div>
 </div>
 
@@ -524,6 +548,21 @@ function connectWS() {
     }
     if (msg.type === 'admin_login_fail') {
       document.getElementById('adminError').style.display = 'block';
+    }
+
+    if (msg.type === 'nickname_changed') {
+      if (msg.oldName === myNickname) {
+        myNickname = msg.newName;
+        localStorage.setItem('dice_nickname', myNickname);
+        document.getElementById('myNickname').textContent = myNickname;
+      }
+      allRecords = msg.records;
+      renderHistory();
+    }
+
+    if (msg.type === 'nickname_error') {
+      const errEl = document.getElementById('nickError');
+      if (errEl) errEl.textContent = msg.reason;
     }
 
     if (msg.type === 'record_updated') {
@@ -855,6 +894,41 @@ function adminDeleteChallenge(recordId, challengeIndex) {
   ws.send(JSON.stringify({ type: 'admin_delete_challenge', recordId, challengeIndex }));
 }
 
+// ── 昵称编辑 ────────────────────────────────────────
+function openNickEdit() {
+  document.getElementById('nickInput').value = myNickname;
+  document.getElementById('nickError').textContent = '';
+  document.getElementById('nickModal').classList.add('show');
+  setTimeout(() => document.getElementById('nickInput').select(), 50);
+}
+
+function closeNickEdit() {
+  document.getElementById('nickModal').classList.remove('show');
+}
+
+function submitNickEdit() {
+  const val = document.getElementById('nickInput').value.trim();
+  if (!val) { document.getElementById('nickError').textContent = '昵称不能为空'; return; }
+  if (val === myNickname) { closeNickEdit(); return; }
+  document.getElementById('nickError').textContent = '';
+  ws.send(JSON.stringify({ type: 'change_nickname', nickname: val }));
+  // 成功时由 nickname_changed 消息触发关闭
+  // 监听一次性成功回调
+  const handler = (e) => {
+    const m = JSON.parse(e.data);
+    if (m.type === 'nickname_changed' && m.newName === val) {
+      closeNickEdit();
+      showToast('昵称修改成功', 'success');
+      ws.removeEventListener('message', handler);
+    }
+  };
+  ws.addEventListener('message', handler);
+}
+
+document.getElementById('nickInput').addEventListener('keydown', e => {
+  if (e.code === 'Enter') submitNickEdit();
+});
+
 // ── 编辑骰子点数 ────────────────────────────────────
 let editingRecordId = null;
 let editingValues = [];
@@ -908,7 +982,8 @@ document.addEventListener('keydown', e => {
     e.preventDefault(); rollDice();
   }
   if (e.code === 'Escape') {
-    if (document.getElementById('editDiceModal').classList.contains('show')) closeEditDice();
+    if (document.getElementById('nickModal').classList.contains('show')) closeNickEdit();
+    else if (document.getElementById('editDiceModal').classList.contains('show')) closeEditDice();
     else if (document.getElementById('adminLoginModal').classList.contains('show')) closeAdminLogin();
     else if (document.getElementById('modalOverlay').classList.contains('show')) closeModal();
     else if (challengeTarget) exitChallengeMode();
